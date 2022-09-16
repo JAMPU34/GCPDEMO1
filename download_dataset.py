@@ -9,19 +9,18 @@ def download_dataset(query: str, project_id: str,
     import os
 
     os.makedirs(output_dir_path, exist_ok=True)
-    op_model_path = output_dir_path
 
-    client = bigquery.Client(location="us-east1", project=project_id)
-    #query = """SELECT * FROM `basic-radius-362010.lakshmi.lakshmidemo` LIMIT 10 """
+    client = bigquery.Client(location="us-central1", project=project_id)
     query=query
     query_job = client.query(
         query,
         # Location must match that of the dataset(s) referenced in the query.
-        location="us-east1",
+        location="us-central1",
     )  # API request - starts the query
 
     df = query_job.to_dataframe()
-    df.to_csv(op_model_path+"lakshmidemo.csv",index=False)
+    df.to_csv(os.path.join(output_dir_path,"lakshmidemo.csv"),index=False)
+    print(os.listdir(output_dir_path))
 
 
 
