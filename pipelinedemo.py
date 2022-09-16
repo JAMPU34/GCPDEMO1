@@ -11,22 +11,23 @@ BASE_IMAGE = "python:3.8-slim"
 
 warnings.filterwarnings('ignore')
 
+pipeline_root="gs://lakshmiqwiklabs-gcp-03-8b866aa182e2aip-20220915080528/pipeline_root/intro"
 
 #Pipeline Orchastration
-@dsl.pipeline(name='pipelinename',description="A simple intro pipeline",pipeline_root="pipeline_root")
-def pipeline(query:str="""SELECT * FROM `basic-radius-362010.lakshmi.lakshmidemo` LIMIT 10 """
-             ,datasetName:str="lakshmidemo.csv",project_id:str="basic-radius-362010"):
+@dsl.pipeline(name='lakshmipipeline8',description="A simple intro pipeline",pipeline_root=pipeline_root)
+def pipeline(query:str="""SELECT * FROM `qwiklabs-gcp-03-8b866aa182e2.lakshmi.lakshmidemo` LIMIT 10 """
+             ,datasetName:str="lakshmidemo.csv",project_id:str="qwiklabs-gcp-03-8b866aa182e2"):
 
     #Components Creation
     download_dataset_opp=components.create_component_from_func(download_dataset.download_dataset,base_image=BASE_IMAGE,
-                                                    packages_to_install=['google.cloud','pandas'])
+                                                    packages_to_install=['google-cloud-bigquery[pandas]==2.34.3','pandas'])
     featureengineering_opp=components.create_component_from_func(featureengineering.featureengineering,base_image=BASE_IMAGE,
                                                     packages_to_install=['sklearn','pandas'])
     training_opp=components.create_component_from_func(training.training,base_image=BASE_IMAGE,
-                                                    packages_to_install=['xgboost','pandas','joblib'])
+                                                    packages_to_install=['sklearn','xgboost','pandas','joblib','numpy'])
 
     evaluation_opp=components.create_component_from_func(evaluation.evaluate,base_image=BASE_IMAGE,
-                                                    packages_to_install=['sklearn','pandas','joblib'])
+                                                    packages_to_install=['sklearn','pandas','joblib','xgboost'])
 
     hypertuning_opp=components.create_component_from_func(hypertuning.hypertuning,base_image=BASE_IMAGE,
                                                     packages_to_install=[])
@@ -34,10 +35,10 @@ def pipeline(query:str="""SELECT * FROM `basic-radius-362010.lakshmi.lakshmidemo
 
 
     #Building pipeline or stitching the components in order
-    download_dataset_opp_final=download_dataset_opp(project_id,query)
+    download_dataset_opp_final=download_dataset_opp(project_id=project_id,query=query)
     featureengineering_opp_final=featureengineering_opp(download_dataset_opp_final.output,datasetName)
     training_opp_final=training_opp(featureengineering_opp_final.output)
-    evaluation_opp_final=training_opp(training_opp_final.output)
+    evaluation_opp_final=evaluation_opp(training_opp_final.output,featureengineering_opp_final.output)
 
 
 
@@ -61,7 +62,7 @@ def main(project_id2:str,staging_bucket:str,package_fileandpathname:str,display_
 
 
 if __name__ == '__main__':
-    main(project_id2="lakshmi",staging_bucket="bucket",package_fileandpathname="lakshmi.json",display_name="helloworld",pipeline_root="pipeline\\root")
+    main(project_id2="qwiklabs-gcp-03-8b866aa182e2",staging_bucket="gs://lakshmiqwiklabs-gcp-03-8b866aa182e2aip-20220915080528",package_fileandpathname="lakshmi.json",display_name="lakshmihelloworld",pipeline_root=pipeline_root)
 
 
 
