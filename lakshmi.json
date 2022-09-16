@@ -1,0 +1,330 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-download-dataset": {
+        "executorLabel": "exec-download-dataset",
+        "inputDefinitions": {
+          "parameters": {
+            "project_id": {
+              "type": "STRING"
+            },
+            "query": {
+              "type": "STRING"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-evaluate": {
+        "executorLabel": "exec-evaluate",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            },
+            "input_dir_path1": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-featureengineering": {
+        "executorLabel": "exec-featureengineering",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "datasetName": {
+              "type": "STRING"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-training": {
+        "executorLabel": "exec-training",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-download-dataset": {
+          "container": {
+            "args": [
+              "--query",
+              "{{$.inputs.parameters['query']}}",
+              "--project-id",
+              "{{$.inputs.parameters['project_id']}}",
+              "--output-dir",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-bigquery[pandas]==2.34.3' 'pandas' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-bigquery[pandas]==2.34.3' 'pandas' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef download_dataset(query, project_id,\n                   output_dir_path):\n\n    from google.cloud import bigquery\n    import pandas\n    import os\n\n    os.makedirs(output_dir_path, exist_ok=True)\n\n    client = bigquery.Client(location=\"us-central1\", project=project_id)\n    query=query\n    query_job = client.query(\n        query,\n        # Location must match that of the dataset(s) referenced in the query.\n        location=\"us-central1\",\n    )  # API request - starts the query\n\n    df = query_job.to_dataframe()\n    df.to_csv(os.path.join(output_dir_path,\"lakshmidemo.csv\"),index=False)\n    print(os.listdir(output_dir_path))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Download dataset', description='')\n_parser.add_argument(\"--query\", dest=\"query\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = download_dataset(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        },
+        "exec-evaluate": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}",
+              "--input-dir-path1",
+              "{{$.inputs.artifacts['input_dir_path1'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'pandas' 'joblib' 'xgboost' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'pandas' 'joblib' 'xgboost' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def evaluate(input_dir_path,input_dir_path1):\n    import joblib\n    import os\n    import pandas as pd\n    from sklearn.metrics import mean_absolute_error\n\n    model=joblib.load(os.path.join(input_dir_path,\"model.joblib\"))\n    test_X=pd.read_csv(os.path.join(input_dir_path1, \"test_X.csv\"))\n    test_X=test_X.to_numpy()\n    test_y=pd.read_csv(os.path.join(input_dir_path1, \"test_y.csv\"))\n    test_y=test_y.to_numpy()\n\n    predictions = model.predict(test_X)\n    print(mean_absolute_error(predictions, test_y))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Evaluate', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--input-dir-path1\", dest=\"input_dir_path1\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = evaluate(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        },
+        "exec-featureengineering": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}",
+              "--datasetName",
+              "{{$.inputs.parameters['datasetName']}}",
+              "--output-dir",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'pandas' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'pandas' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef featureengineering(output_dir_path,input_dir_path,datasetName):\n\n    from sklearn.model_selection import train_test_split\n    import pandas as pd\n    import os\n\n    os.makedirs(output_dir_path, exist_ok=True)\n    df=pd.read_csv(os.path.join(input_dir_path,datasetName))\n\n    df.dropna(axis=0, subset=['SalePrice'], inplace=True)\n    y = df.SalePrice\n    X = df.drop(['SalePrice'], axis=1).select_dtypes(exclude=['object'])\n    train_X, test_X, train_y, test_y = train_test_split(X.values,\n                                                        y.values,\n                                                        test_size=0.25,\n                                                        shuffle=False)\n\n    train_X=pd.DataFrame(train_X)\n    train_X.to_csv(os.path.join(output_dir_path,\"train_X.csv\"))\n\n    train_y=pd.DataFrame(train_y)\n    train_y.to_csv(os.path.join(output_dir_path,\"train_y.csv\"))\n\n    test_X=pd.DataFrame(test_X)\n    test_X.to_csv(os.path.join(output_dir_path,\"test_X.csv\"))\n\n    test_y=pd.DataFrame(test_y)\n    test_y.to_csv(os.path.join(output_dir_path,\"test_y.csv\"))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Featureengineering', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--datasetName\", dest=\"datasetName\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = featureengineering(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        },
+        "exec-training": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}",
+              "--output-dir",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'xgboost' 'pandas' 'joblib' 'numpy' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'xgboost' 'pandas' 'joblib' 'numpy' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef training(output_dir_path,input_dir_path):\n\n    from xgboost import XGBRegressor\n    import pandas as pd\n    import os\n    import joblib\n    import numpy\n\n    os.makedirs(output_dir_path, exist_ok=True)\n    train_X=pd.read_csv(os.path.join(input_dir_path,\"train_X.csv\"))\n    train_X=train_X.to_numpy()\n    train_y=pd.read_csv(os.path.join(input_dir_path,\"train_y.csv\"))\n    train_y=train_y.to_numpy()\n    test_X=pd.read_csv(os.path.join(input_dir_path, \"test_X.csv\"))\n    test_X=test_X.to_numpy()\n    test_y=pd.read_csv(os.path.join(input_dir_path, \"test_y.csv\"))\n    test_y=test_y.to_numpy()\n\n    \"\"\"Train the model using XGBRegressor.\"\"\"\n    model = XGBRegressor(n_estimators=1000,\n                             learning_rate=0.1)\n\n    model.fit(train_X,\n                  train_y,\n                  early_stopping_rounds=40,\n                  eval_set=[(test_X, test_y)])\n\n    print(\"model score:\",model.best_score,\"At iteration:\",model.best_iteration + 1)\n\n    joblib.dump(model, os.path.join(output_dir_path,\"model.joblib\"))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Training', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = training(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "lakshmipipeline8"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "download-dataset": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-download-dataset"
+            },
+            "inputs": {
+              "parameters": {
+                "project_id": {
+                  "componentInputParameter": "project_id"
+                },
+                "query": {
+                  "componentInputParameter": "query"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "download-dataset"
+            }
+          },
+          "evaluate": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-evaluate"
+            },
+            "dependentTasks": [
+              "featureengineering",
+              "training"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "training"
+                  }
+                },
+                "input_dir_path1": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "featureengineering"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "evaluate"
+            }
+          },
+          "featureengineering": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-featureengineering"
+            },
+            "dependentTasks": [
+              "download-dataset"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "download-dataset"
+                  }
+                }
+              },
+              "parameters": {
+                "datasetName": {
+                  "componentInputParameter": "datasetName"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "featureengineering"
+            }
+          },
+          "training": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-training"
+            },
+            "dependentTasks": [
+              "featureengineering"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "featureengineering"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "training"
+            }
+          }
+        }
+      },
+      "inputDefinitions": {
+        "parameters": {
+          "datasetName": {
+            "type": "STRING"
+          },
+          "project_id": {
+            "type": "STRING"
+          },
+          "query": {
+            "type": "STRING"
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.13"
+  },
+  "runtimeConfig": {
+    "gcsOutputDirectory": "gs://lakshmiqwiklabs-gcp-03-8b866aa182e2aip-20220915080528/pipeline_root/intro",
+    "parameters": {
+      "datasetName": {
+        "stringValue": "lakshmidemo.csv"
+      },
+      "project_id": {
+        "stringValue": "qwiklabs-gcp-03-8b866aa182e2"
+      },
+      "query": {
+        "stringValue": "SELECT * FROM `qwiklabs-gcp-03-8b866aa182e2.lakshmi.lakshmidemo` LIMIT 10 "
+      }
+    }
+  }
+}
