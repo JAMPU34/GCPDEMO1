@@ -7,7 +7,9 @@ def training(output_dir_path:OutputPath(),input_dir_path:InputPath()):
     import pandas as pd
     import os
     import joblib
-
+    import numpy
+    
+    os.makedirs(output_dir_path, exist_ok=True)
     train_X=pd.read_csv(os.path.join(input_dir_path,"train_X.csv"))
     train_X=train_X.to_numpy()
     train_y=pd.read_csv(os.path.join(input_dir_path,"train_y.csv"))
@@ -28,4 +30,4 @@ def training(output_dir_path:OutputPath(),input_dir_path:InputPath()):
 
     print("model score:",model.best_score,"At iteration:",model.best_iteration + 1)
 
-    joblib.dump(model, input_dir_path)
+    joblib.dump(model, os.path.join(output_dir_path,"model.joblib"))
