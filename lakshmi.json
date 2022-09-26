@@ -1,6 +1,24 @@
 {
   "pipelineSpec": {
     "components": {
+      "comp-batchpredict": {
+        "executorLabel": "exec-batchpredict",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "project_id": {
+              "type": "STRING"
+            }
+          }
+        }
+      },
       "comp-download-dataset": {
         "executorLabel": "exec-download-dataset",
         "inputDefinitions": {
@@ -20,6 +38,24 @@
                 "schemaTitle": "system.Artifact",
                 "schemaVersion": "0.0.1"
               }
+            }
+          }
+        }
+      },
+      "comp-endpointdeploy": {
+        "executorLabel": "exec-endpointdeploy",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "project_id": {
+              "type": "STRING"
             }
           }
         }
@@ -71,6 +107,37 @@
           }
         }
       },
+      "comp-modelexport": {
+        "executorLabel": "exec-modelexport",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          },
+          "parameters": {
+            "bucket": {
+              "type": "STRING"
+            },
+            "project_id": {
+              "type": "STRING"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
       "comp-training": {
         "executorLabel": "exec-training",
         "inputDefinitions": {
@@ -80,6 +147,11 @@
                 "schemaTitle": "system.Artifact",
                 "schemaVersion": "0.0.1"
               }
+            }
+          },
+          "parameters": {
+            "bucket_name": {
+              "type": "STRING"
             }
           }
         },
@@ -97,6 +169,26 @@
     },
     "deploymentSpec": {
       "executors": {
+        "exec-batchpredict": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}",
+              "--project-id",
+              "{{$.inputs.parameters['project_id']}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def batchpredict(input_dir_path,project_id):\n\n    import google.cloud.aiplatform as aiplatform\n\n    models = aiplatform.Model.list(filter=f\"display_name=lakshmigcpdemo1\")\n    model=models[0]\n    batch_prediction_job = model.batch_predict(\n      job_display_name='lakshmi-batch-prediction-job',\n      instances_format='bigquery',\n      machine_type='n1-standard-4',\n      bigquery_source='bq://qwiklabs-gcp-04-9b56f269a5ed.batchamsdata.batchsource',\n      bigquery_destination_prefix='bq://qwiklabs-gcp-04-9b56f269a5ed'\n    )\n\n    print(\"Job Completed Successfully and uploaded the results\")\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Batchpredict', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = batchpredict(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        },
         "exec-download-dataset": {
           "container": {
             "args": [
@@ -119,6 +211,26 @@
             "image": "python:3.8-slim"
           }
         },
+        "exec-endpointdeploy": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}",
+              "--project-id",
+              "{{$.inputs.parameters['project_id']}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def endpointdeploy(input_dir_path,project_id):\n\n    import google.cloud.aiplatform as aiplatform\n\n    endpoint = aiplatform.Endpoint.create(\n    display_name=\"lakshmigcpddemo1rock\",\n    project=project_id,\n    location='us-central1'\n    )\n\n    print(endpoint)\n\n    models = aiplatform.Model.list(filter=f\"display_name=lakshmigcpdemo1\")\n    print(\"ModelNmae:\",models[0])\n    model=models[0]\n\n    response = endpoint.deploy(\n    model=model,\n    deployed_model_display_name=\"xgboostams\",\n    machine_type='n1-standard-4',\n    )\n\n    print(endpoint)\n\n    deployed_model_id = endpoint.gca_resource.deployed_models[0].id\n    print(deployed_model_id)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Endpointdeploy', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = endpointdeploy(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        },
         "exec-evaluate": {
           "container": {
             "args": [
@@ -134,7 +246,7 @@
               "sh",
               "-ec",
               "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
-              "def evaluate(input_dir_path,input_dir_path1):\n    import joblib\n    import os\n    import pandas as pd\n    from sklearn.metrics import mean_absolute_error\n\n    model=joblib.load(os.path.join(input_dir_path,\"model.joblib\"))\n    test_X=pd.read_csv(os.path.join(input_dir_path1, \"test_X.csv\"))\n    test_X=test_X.to_numpy()\n    test_y=pd.read_csv(os.path.join(input_dir_path1, \"test_y.csv\"))\n    test_y=test_y.to_numpy()\n\n    predictions = model.predict(test_X)\n    print(mean_absolute_error(predictions, test_y))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Evaluate', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--input-dir-path1\", dest=\"input_dir_path1\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = evaluate(**_parsed_args)\n"
+              "def evaluate(input_dir_path,input_dir_path1):\n    import joblib\n    import os\n    import pandas as pd\n    from sklearn.metrics import mean_absolute_error\n\n    model=joblib.load(os.path.join(input_dir_path,\"model.joblib\"))\n    test_X=pd.read_csv(os.path.join(input_dir_path1, \"test_X.csv\"))\n    test_X=test_X.to_numpy()\n    test_y=pd.read_csv(os.path.join(input_dir_path1, \"test_y.csv\"))\n    test_y=test_y.to_numpy()\n\n    predictions = model.predict(test_X)\n    print(\"Mean Absolute Error:\",mean_absolute_error(predictions, test_y))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Evaluate', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--input-dir-path1\", dest=\"input_dir_path1\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = evaluate(**_parsed_args)\n"
             ],
             "image": "python:3.8-slim"
           }
@@ -161,22 +273,48 @@
             "image": "python:3.8-slim"
           }
         },
-        "exec-training": {
+        "exec-modelexport": {
           "container": {
             "args": [
               "--input-dir",
               "{{$.inputs.artifacts['input_dir'].path}}",
+              "--project-id",
+              "{{$.inputs.parameters['project_id']}}",
+              "--bucket",
+              "{{$.inputs.parameters['bucket']}}",
               "--output-dir",
               "{{$.outputs.artifacts['output_dir'].path}}"
             ],
             "command": [
               "sh",
               "-c",
-              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'xgboost' 'pandas' 'joblib' 'numpy' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'xgboost' 'pandas' 'joblib' 'numpy' --user) && \"$0\" \"$@\"",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'google-cloud-aiplatform' --user) && \"$0\" \"$@\"",
               "sh",
               "-ec",
               "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
-              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef training(output_dir_path,input_dir_path):\n\n    from xgboost import XGBRegressor\n    import pandas as pd\n    import os\n    import joblib\n    import numpy\n\n    os.makedirs(output_dir_path, exist_ok=True)\n    train_X=pd.read_csv(os.path.join(input_dir_path,\"train_X.csv\"))\n    train_X=train_X.to_numpy()\n    train_y=pd.read_csv(os.path.join(input_dir_path,\"train_y.csv\"))\n    train_y=train_y.to_numpy()\n    test_X=pd.read_csv(os.path.join(input_dir_path, \"test_X.csv\"))\n    test_X=test_X.to_numpy()\n    test_y=pd.read_csv(os.path.join(input_dir_path, \"test_y.csv\"))\n    test_y=test_y.to_numpy()\n\n    \"\"\"Train the model using XGBRegressor.\"\"\"\n    model = XGBRegressor(n_estimators=1000,\n                             learning_rate=0.1)\n\n    model.fit(train_X,\n                  train_y,\n                  early_stopping_rounds=40,\n                  eval_set=[(test_X, test_y)])\n\n    print(\"model score:\",model.best_score,\"At iteration:\",model.best_iteration + 1)\n\n    joblib.dump(model, os.path.join(output_dir_path,\"model.joblib\"))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Training', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = training(**_parsed_args)\n"
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef modelexport(input_dir_path,output_dir_path,project_id,bucket):\n\n    import os\n    import google.cloud.aiplatform as aiplatform\n\n    aiplatform.init(project=project_id, location='us-central1')\n    model_v1 = aiplatform.Model.upload(\n    display_name=\"lakshmigcpdemo1\",\n    artifact_uri=bucket+\"/models\",\n    serving_container_image_uri=\"us-docker.pkg.dev/vertex-ai/prediction/xgboost-cpu.1-6:latest\"\n    )\n\n    model_v1.wait()\n    print(model_v1)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Modelexport', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--bucket\", dest=\"bucket\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = modelexport(**_parsed_args)\n"
+            ],
+            "image": "python:3.8-slim"
+          }
+        },
+        "exec-training": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}",
+              "--bucket-name",
+              "{{$.inputs.parameters['bucket_name']}}",
+              "--output-dir",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-c",
+              "(PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'xgboost' 'pandas' 'joblib' 'numpy' 'google-cloud-storage' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'sklearn' 'xgboost' 'pandas' 'joblib' 'numpy' 'google-cloud-storage' --user) && \"$0\" \"$@\"",
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef training(output_dir_path,input_dir_path,bucket_name):\n\n    from xgboost import XGBRegressor\n    import google.cloud.storage as storage\n    import pandas as pd\n    import os\n    import joblib\n    import numpy\n\n    os.makedirs(output_dir_path, exist_ok=True)\n    train_X=pd.read_csv(os.path.join(input_dir_path,\"train_X.csv\"))\n    train_X=train_X.to_numpy()\n    train_y=pd.read_csv(os.path.join(input_dir_path,\"train_y.csv\"))\n    train_y=train_y.to_numpy()\n    test_X=pd.read_csv(os.path.join(input_dir_path, \"test_X.csv\"))\n    test_X=test_X.to_numpy()\n    test_y=pd.read_csv(os.path.join(input_dir_path, \"test_y.csv\"))\n    test_y=test_y.to_numpy()\n\n    \"\"\"Train the model using XGBRegressor.\"\"\"\n    model = XGBRegressor(n_estimators=1000,\n                             learning_rate=0.1)\n\n    model.fit(train_X,\n                  train_y,\n                  early_stopping_rounds=40,\n                  eval_set=[(test_X, test_y)])\n\n    print(\"model score:\",model.best_score,\"At iteration:\",model.best_iteration + 1)\n    #bucket_name=\"gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744\"+\"/models\"\n    #joblib.dump(model, os.path.join(output_dir_path,\"model.joblib\"))\n    joblib.dump(model,\"model.joblib\")\n    storage_path = os.path.join(\"gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744/models\", \"model.joblib\")\n    print(\"storage_path:\",storage_path)\n    blob = storage.blob.Blob.from_string(storage_path, client=storage.Client())\n    blob.upload_from_filename(\"model.joblib\")\n    joblib.dump(model, os.path.join(output_dir_path,\"model.joblib\")) #For Evaluation purpose\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Training', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--bucket-name\", dest=\"bucket_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = training(**_parsed_args)\n"
             ],
             "image": "python:3.8-slim"
           }
@@ -184,11 +322,40 @@
       }
     },
     "pipelineInfo": {
-      "name": "lakshmipipeline8"
+      "name": "lakshmipipeline14"
     },
     "root": {
       "dag": {
         "tasks": {
+          "batchpredict": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-batchpredict"
+            },
+            "dependentTasks": [
+              "modelexport"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "modelexport"
+                  }
+                }
+              },
+              "parameters": {
+                "project_id": {
+                  "componentInputParameter": "project_id"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "batchpredict"
+            }
+          },
           "download-dataset": {
             "cachingOptions": {
               "enableCache": true
@@ -208,6 +375,35 @@
             },
             "taskInfo": {
               "name": "download-dataset"
+            }
+          },
+          "endpointdeploy": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-endpointdeploy"
+            },
+            "dependentTasks": [
+              "modelexport"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "modelexport"
+                  }
+                }
+              },
+              "parameters": {
+                "project_id": {
+                  "componentInputParameter": "project_id"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "endpointdeploy"
             }
           },
           "evaluate": {
@@ -270,6 +466,42 @@
               "name": "featureengineering"
             }
           },
+          "modelexport": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-modelexport"
+            },
+            "dependentTasks": [
+              "training"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "training"
+                  }
+                }
+              },
+              "parameters": {
+                "bucket": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "stringValue": "gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744"
+                    }
+                  }
+                },
+                "project_id": {
+                  "componentInputParameter": "project_id"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "modelexport"
+            }
+          },
           "training": {
             "cachingOptions": {
               "enableCache": true
@@ -286,6 +518,15 @@
                   "taskOutputArtifact": {
                     "outputArtifactKey": "output_dir",
                     "producerTask": "featureengineering"
+                  }
+                }
+              },
+              "parameters": {
+                "bucket_name": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "stringValue": "gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744"
+                    }
                   }
                 }
               }
@@ -311,19 +552,19 @@
       }
     },
     "schemaVersion": "2.0.0",
-    "sdkVersion": "kfp-1.8.13"
+    "sdkVersion": "kfp-1.8.14"
   },
   "runtimeConfig": {
-    "gcsOutputDirectory": "gs://lakshmiqwiklabs-gcp-03-8b866aa182e2aip-20220915080528/pipeline_root/intro",
+    "gcsOutputDirectory": "gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744/pipeline_root/intro",
     "parameters": {
       "datasetName": {
         "stringValue": "lakshmidemo.csv"
       },
       "project_id": {
-        "stringValue": "qwiklabs-gcp-03-8b866aa182e2"
+        "stringValue": "qwiklabs-gcp-04-9b56f269a5ed"
       },
       "query": {
-        "stringValue": "SELECT * FROM `qwiklabs-gcp-03-8b866aa182e2.lakshmi.lakshmidemo` LIMIT 10 "
+        "stringValue": "SELECT * FROM `qwiklabs-gcp-04-9b56f269a5ed.lakshmi.lakshmidemo` LIMIT 10 "
       }
     }
   }
