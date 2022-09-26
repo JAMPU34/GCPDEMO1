@@ -14,6 +14,6 @@ def evaluate(input_dir_path:InputPath(),input_dir_path1:InputPath()):
     test_y=test_y.to_numpy()
 
     predictions = model.predict(test_X)
-    print(mean_absolute_error(predictions, test_y))
+    print("Mean Absolute Error:",mean_absolute_error(predictions, test_y))
 
 
