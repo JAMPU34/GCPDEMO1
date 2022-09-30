@@ -10,6 +10,7 @@ def training(output_dir_path:OutputPath(),input_dir_path:InputPath(),bucket_name
     import joblib
     import numpy
     
+    #Common Steps starts here
     os.makedirs(output_dir_path, exist_ok=True)
     train_X=pd.read_csv(os.path.join(input_dir_path,"train_X.csv"))
     train_X=train_X.to_numpy()
@@ -19,6 +20,7 @@ def training(output_dir_path:OutputPath(),input_dir_path:InputPath(),bucket_name
     test_X=test_X.to_numpy()
     test_y=pd.read_csv(os.path.join(input_dir_path, "test_y.csv"))
     test_y=test_y.to_numpy()
+    #Common steps Ends here
 
     """Train the model using XGBRegressor."""
     model = XGBRegressor(n_estimators=1000,
@@ -30,12 +32,13 @@ def training(output_dir_path:OutputPath(),input_dir_path:InputPath(),bucket_name
                   eval_set=[(test_X, test_y)])
 
     print("model score:",model.best_score,"At iteration:",model.best_iteration + 1)
-    #bucket_name="gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744"+"/models"
-    #joblib.dump(model, os.path.join(output_dir_path,"model.joblib"))
+    
+    #Common Steps Starts here
     joblib.dump(model,"model.joblib")
-    storage_path = os.path.join("gs://qwiklabs-gcp-04-9b56f269a5edaip-20220926060744/models", "model.joblib")
+    storage_path = os.path.join("gs://qwiklabs-gcp-02-2cabae029b33aip-20220927061904/models", "model.joblib")
     print("storage_path:",storage_path)
     blob = storage.blob.Blob.from_string(storage_path, client=storage.Client())
     blob.upload_from_filename("model.joblib")
     joblib.dump(model, os.path.join(output_dir_path,"model.joblib")) #For Evaluation purpose
+    #Common Steps Ends here
     

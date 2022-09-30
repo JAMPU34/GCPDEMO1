@@ -6,6 +6,7 @@ def modelexport(input_dir_path:InputPath(),output_dir_path:OutputPath(),project_
     import os
     import google.cloud.aiplatform as aiplatform
     
+    #Common Steps Starts here
     aiplatform.init(project=project_id, location='us-central1')
     model_v1 = aiplatform.Model.upload(
     display_name="lakshmigcpdemo1",
@@ -15,6 +16,7 @@ def modelexport(input_dir_path:InputPath(),output_dir_path:OutputPath(),project_
     
     model_v1.wait()
     print(model_v1)
+    #Common Steps Ends here
     
     
     

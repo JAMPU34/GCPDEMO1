@@ -1,13 +1,14 @@
-from kfp.components import OutputPath
+from kfp.components import OutputPath,InputPath
 from typing import NamedTuple
 
-def download_dataset(query: str, project_id: str,
+def download_dataset(input_dir_path:InputPath(),query: str, project_id: str,
                    output_dir_path: OutputPath()):
 
     from google.cloud import bigquery
     import pandas
     import os
-
+    
+    #Commom Steps Starts Here
     os.makedirs(output_dir_path, exist_ok=True)
 
     client = bigquery.Client(location="us-central1", project=project_id)
@@ -21,6 +22,8 @@ def download_dataset(query: str, project_id: str,
     df = query_job.to_dataframe()
     df.to_csv(os.path.join(output_dir_path,"lakshmidemo.csv"),index=False)
     print(os.listdir(output_dir_path))
+    
+    #Common Steps Ends here
 
 
 

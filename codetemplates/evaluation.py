@@ -6,7 +6,8 @@ def evaluate(input_dir_path:InputPath(),input_dir_path1:InputPath()):
     import os
     import pandas as pd
     from sklearn.metrics import mean_absolute_error
-
+    
+    #Common Steps Starts here
     model=joblib.load(os.path.join(input_dir_path,"model.joblib"))
     test_X=pd.read_csv(os.path.join(input_dir_path1, "test_X.csv"))
     test_X=test_X.to_numpy()
@@ -15,5 +16,6 @@ def evaluate(input_dir_path:InputPath(),input_dir_path1:InputPath()):
 
     predictions = model.predict(test_X)
     print("Mean Absolute Error:",mean_absolute_error(predictions, test_y))
+    #Common Steps Ends here
 
 

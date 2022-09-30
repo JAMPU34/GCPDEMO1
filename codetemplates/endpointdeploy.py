@@ -5,6 +5,7 @@ def endpointdeploy(input_dir_path:InputPath(),project_id:str):
     
     import google.cloud.aiplatform as aiplatform
     
+    #Common steps starts here
     endpoint = aiplatform.Endpoint.create(
     display_name="lakshmigcpddemo1rock",
     project=project_id,
@@ -27,3 +28,4 @@ def endpointdeploy(input_dir_path:InputPath(),project_id:str):
     
     deployed_model_id = endpoint.gca_resource.deployed_models[0].id
     print(deployed_model_id)
+    #Common Stpes Ends here
